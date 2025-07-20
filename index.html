@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BINGX Auto-Cycling TradingView Watchlist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #181818;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    .chart-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #181818;
+      position: relative;
+      height: 100vh;
+      min-width: 0;
+    }
+    .chart-info {
+      position: absolute;
+      top: 25px;
+      left: 25px;
+      background: rgba(35, 39, 42, 0.96);
+      border-radius: 6px;
+      padding: 12px 18px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      min-width: 180px;
+      color: #f9d923;
+      font-size: 1.02em;
+      font-weight: bold;
+      letter-spacing: .01em;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+      user-select: none;
+    }
+    .chart-info span {
+      color: #fff;
+      font-size: 0.95em;
+      font-weight: normal;
+    }
+    .auto-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 100;
+      background: rgba(30,30,30,0.22);
+      color: #f9d923;
+      border: 1px solid #f9d923;
+      border-radius: 12px;
+      font-size: 0.82em;
+      padding: 5px 18px 5px 16px;
+      opacity: 0.45;
+      cursor: pointer;
+      transition: opacity 0.2s, background 0.2s;
+      outline: none;
+      user-select: none;
+    }
+    .auto-btn:hover, .auto-btn:focus {
+      opacity: 0.95;
+      background: rgba(30,30,30,0.46);
+    }
+    .auto-btn.on {
+      background: rgba(249,217,35,0.13);
+      color: #f9d923;
+      border-color: #f9d923;
+    }
+    .watchlist {
+      width: 260px;
+      background: #23272a;
+      padding: 18px 8px 18px 8px;
+      box-sizing: border-box;
+      border-left: 2px solid #111;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s cubic-bezier(.77,0,.18,1.01), opacity 0.3s;
+      position: relative;
+      min-width: 180px;
+      max-width: 100vw;
+    }
+    .watchlist.hide {
+      transform: translateX(105%);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+    .watchlist-toggle {
+      display: block;
+      position: absolute;
+      left: -32px;
+      top: 20px;
+      width: 28px; height: 48px;
+      background: rgba(35,39,42,0.7);
+      color: #f9d923;
+      border: 1px solid #23272a;
+      border-radius: 8px 0 0 8px;
+      cursor: pointer;
+      z-index: 2;
+      font-size: 1.1em;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .watchlist-toggle:hover, .watchlist-toggle:focus { opacity: 1; }
+    .watchlist h2 {
+      font-size: 1.12em;
+      margin-bottom: 9px;
+      color: #f9d923;
+      letter-spacing: 0.03em;
+      text-align: left;
+      font-weight: bold;
+    }
+    .symbol-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex: 1 1 auto;
+      overflow-y: auto;
+      max-height: 78vh;
+    }
+    .symbol-list li {
+      padding: 8px 12px;
+      margin-bottom: 3px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+      font-size: 0.98em;
+      outline: none;
+      border: none;
+      color: #fff;
+      background: none;
+      border-left: 3px solid transparent;
+    }
+    .symbol-list li.active, .symbol-list li:focus {
+      background: #32383e;
+      color: #f9d923;
+      border-left: 3px solid #f9d923;
+      font-weight: bold;
+    }
+    .symbol-list li:hover:not(.active) {
+      background: #232b38;
+      color: #f9d923;
+    }
+    @media (max-width: 900px) {
+      .watchlist {
+        width: 80vw;
+        min-width: 0;
+        max-width: 92vw;
+        padding-right: 0;
+      }
+      .symbol-list {
+        max-height: 60vh;
+      }
+    }
+    @media (max-width: 600px) {
+      .container { flex-direction: column; }
+      .chart-area { min-height: 320px; }
+      .watchlist {
+        position: fixed;
+        top: 0; right: 0; bottom: 0;
+        width: 89vw;
+        max-width: 98vw;
+        min-width: 0;
+        z-index: 400;
+        border-left: none;
+        border-top: 2px solid #111;
+        box-shadow: -2px 2px 18px 0 rgba(0,0,0,0.22);
+        padding: 14px 5px 14px 5px;
+        background: #23272ac8;
+      }
+      .watchlist-toggle {
+        left: unset;
+        right: 90vw;
+        top: 12px;
+      }
+      .symbol-list { max-height: 66vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="chart-area" id="chartArea">
+      <button class="auto-btn" id="autoBtn" title="Toggle auto cycling">Auto OFF</button>
+      <div class="chart-info" id="chartInfo">
+        <div id="infoSymbol">Symbol: <span></span></div>
+        <div id="infoExchange">Exchange: <span></span></div>
+      </div>
+      <div id="tradingview_chart"></div>
+    </div>
+    <aside class="watchlist hide" id="watchlist">
+      <button class="watchlist-toggle" id="watchlistToggle" title="Show/hide watchlist">&#9776;</button>
+      <h2>BINGX Watchlist</h2>
+      <ul class="symbol-list" id="symbolList">
+        <!-- Symbols will be inserted here -->
+      </ul>
+    </aside>
+  </div>
+  <!-- TradingView Widget Script -->
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    // All BINGX symbols as array (shortened here for brevity, but use your supplied full list)
+    const symbolCodes = [
+      "BINGX:1000000BABYDOGEUSDT.P","BINGX:1000000bobusdt.p","BINGX:1000000MOGUSDT.P","BINGX:10000SATSUSDT.P","BINGX:10000WHYUSDT.P","BINGX:1000BONKUSDT.P","BINGX:1000CATUSDT.P","BINGX:1000CHEEMSUSDT.P","BINGX:1000PEPEUSDT.P","BINGX:1INCHUSDT.P","BINGX:AUSDT.P","BINGX:AAPLXUSDT.P","BINGX:AAVEUSDT.P","BINGX:ACEUSDT.P","BINGX:ACHUSDT.P","BINGX:ACTUSDT.P","BINGX:ADAUSDT.P","BINGX:AERGOUSDT.P","BINGX:AEROUSDT.P","BINGX:AEVOUSDT.P","BINGX:AGLDUSDT.P","BINGX:AGTUSDT.P","BINGX:AI16ZUSDT.P","BINGX:AINUSDT.P","BINGX:AIOTUSDT.P","BINGX:AIXBTUSDT.P","BINGX:AKTUSDT.P","BINGX:ALCHUSDT.P","BINGX:ALGOUSDT.P","BINGX:ALPHAUSDT.P","BINGX:ALPINEUSDT.P","BINGX:ALTUSDT.P","BINGX:ALTCOINUSDT.P","BINGX:ANIMEUSDT.P","BINGX:ANKRUSDT.P","BINGX:APEUSDT.P","BINGX:API3USDT.P","BINGX:APTUSDT.P","BINGX:ARBUSDT.P","BINGX:ARCUSDT.P","BINGX:ARKUSDT.P","BINGX:ARPAUSDT.P","BINGX:ARUSDT.P","BINGX:ASRUSDT.P","BINGX:ASRRUSDT.P","BINGX:ASTRUSDT.P","BINGX:ATAUSDT.P","BINGX:ATHUSDT.P","BINGX:ATOMUSDT.P","BINGX:AUCTIONUSDT.P","BINGX:AVAAIUSDT.P","BINGX:AVAUSDT.P","BINGX:AVAXUSDT.P","BINGX:AWEUSDT.P","BINGX:AXLUSDT.P","BINGX:AXSUSDT.P","BINGX:BUSDT.P","BINGX:B2USDT.P","BINGX:B3USDT.P","BINGX:BABYUSDT.P","BINGX:BAKEUSDT.P","BINGX:BANANA231U.USDT.P","BINGX:BANANAUSDT.P","BINGX:BANKUSDT.P","BINGX:BATUSDT.P","BINGX:BBUSDT.P","BINGX:BCHUSDT.P","BINGX:BDNXUSDT.P","BINGX:BEAMUSDT.P","BINGX:BERAUSDT.P","BINGX:BIDUSDT.P","BINGX:BIGTIMEUSDT.P","BINGX:BIOUSDT.P","BINGX:BLASTUSDT.P","BINGX:BLURUSDT.P","BINGX:BLUEFINUSDT.P","BINGX:BMTUSDT.P","BINGX:BNTUSDT.P","BINGX:BNBUSDT.P","BINGX:BOMBUSDT.P","BINGX:BOMEUSDT.P","BINGX:BRUSDT.P","BINGX:BRETTUSDT.P","BINGX:BROCCOLIUSDT.P","BINGX:BROCCOLIF3BUSDT.P","BINGX:BSVUSDT.P","BINGX:BSWUSDT.P","BINGX:BTCUSDT.P","BINGX:BULLAUSDT.P","BINGX:CAKEUSDT.P","BINGX:CELOUSDT.P","BINGX:CATIUSDT.P","BINGX:CELRUSDT.P","BINGX:CETUSUSDT.P","BINGX:CFXUSDT.P","BINGX:CGPTUSDT.P","BINGX:CHESSUSDT.P","BINGX:CHILLGUYUSDT.P","BINGX:CHRUSDT.P","BINGX:CHZUSDT.P","BINGX:CKBUSDT.P","BINGX:COINXUSDT.P","BINGX:CLOUDUSDT.P","BINGX:COMPUSDT.P","BINGX:COOKIEUSDT.P","BINGX:COREUSDT.P","BINGX:COSUSDT.P","BINGX:COTIUSDT.P","BINGX:COWUSDT.P","BINGX:CRCLXUSDT.P","BINGX:CRVUSDT.P","BINGX:CTCUSDT.P","BINGX:CTKUSDT.P","BINGX:CUDISUSDT.P","BINGX:CVCUSDT.P","BINGX:CYBERUSDT.P","BINGX:DUSDT.P","BINGX:DARKUSDT.P","BINGX:DBRUSDT.P","BINGX:DEEPUSDT.P","BINGX:DEGENUSDT.P","BINGX:DEGOUSDT.P","BINGX:DFUSDT.P","BINGX:DIAUSDT.P","BINGX:DMCUSDT.P","BINGX:DOGUSDT.P","BINGX:DOGEUSDT.P","BINGX:DOGSUSDT.P","BINGX:DOLOUSDT.P","BINGX:DOODUSDT.P","BINGX:DOTUSDT.P","BINGX:DRIFTUSDT.P","BINGX:DUSKUSDT.P","BINGX:DYDXUSDT.P","BINGX:DYMUSDT.P","BINGX:EDUUSDT.P","BINGX:EGLDUSDT.P","BINGX:EIGENUSDT.P","BINGX:ELDEUSDT.P","BINGX:ELXUSDT.P","BINGX:ENAUSDT.P","BINGX:ENJUSDT.P","BINGX:ENSUSDT.P","BINGX:EPICUSDT.P","BINGX:EPTUSDT.P","BINGX:ERAUSDT.P","BINGX:ESUSDT.P","BINGX:ETCUSDT.P","BINGX:ETHUSDT.P","BINGX:ETHFIUSDT.P","BINGX:ETHWUSDT.P","BINGX:FUSDT.P","BINGX:FARTCOINUSDT.P","BINGX:FETUSDT.P","BINGX:FHEUSDT.P","BINGX:FIDAUSDT.P","BINGX:FILUSDT.P","BINGX:FIOUSDT.P","BINGX:FISUSDT.P","BINGX:FLMUSDT.P","BINGX:FLOCKUSDT.P","BINGX:FLOKIUSDT.P","BINGX:FLOWUSDT.P","BINGX:FLUXUSDT.P","BINGX:FORMUSDT.P","BINGX:FORTHUSDT.P","BINGX:FRAGUSDT.P","BINGX:FUELUSDT.P","BINGX:FUNTOKENUSDT.P","BINGX:FXSUSDT.P","BINGX:GUSDT.P","BINGX:GALAUSDT.P","BINGX:GASUSDT.P","BINGX:GHSTUSDT.P","BINGX:GMTUSDT.P","BINGX:GMXUSDT.P","BINGX:GOATUSDT.P","BINGX:GORUSDT.P","BINGX:GORKUSDT.P","BINGX:GPSUSDT.P","BINGX:GRASSUSDT.P","BINGX:GRIFFAINUSDT.P","BINGX:GRTUSDT.P","BINGX:GTCUSDT.P","BINGX:GUNUSDT.P","BINGX:HAEDALUSDT.P","BINGX:HBARUSDT.P","BINGX:HEIUSDT.P","BINGX:HIFIUSDT.P","BINGX:HIGHUSDT.P","BINGX:HIPPOUSDT.P","BINGX:HIVEUSDT.P","BINGX:HMSTRUSDT.P","BINGX:HOMEUSDT.P","BINGX:HOODXUSDT.P","BINGX:HOOKUSDT.P","BINGX:HOTUSDT.P","BINGX:HOUSEUSDT.P","BINGX:HUMAUSDT.P","BINGX:HYPEUSDT.P","BINGX:HYPERLANEUSDT.P","BINGX:ICNTUSDT.P","BINGX:ICPUSDT.P","BINGX:ICXUSDT.P","BINGX:IDUSDT.P","BINGX:IDOLUSDT.P","BINGX:ILVUSDT.P","BINGX:IMXUSDT.P","BINGX:INITUSDT.P","BINGX:INJUSDT.P","BINGX:IOUSDT.P","BINGX:IOSTUSDT.P","BINGX:IOTAUSDT.P","BINGX:IPUSDT.P","BINGX:JASMYUSDT.P","BINGX:JOEUSDT.P","BINGX:JSTUSDT.P","BINGX:JTOUSDT.P","BINGX:JUPUSDT.P","BINGX:KAIAUSDT.P","BINGX:KAITOUSDT.P","BINGX:KASUSDT.P","BINGX:KAVAUSDT.P","BINGX:KDAUSDT.P","BINGX:KERNELUSDT.P","BINGX:KILOUSDT.P","BINGX:KMNOUSDT.P","BINGX:KNCUSDT.P","BINGX:KOMAUSDT.P","BINGX:KSMUSDT.P","BINGX:LAUSDTUSDT.P","BINGX:LAUNCHCOINUSDT.P","BINGX:LAYERUSDT.P","BINGX:LDOUSDT.P","BINGX:LINKUSDT.P","BINGX:LISTAUSDT.P","BINGX:LOKAUSDT.P","BINGX:LPTUSDT.P","BINGX:LQTYUSDT.P","BINGX:LRCUSDT.P","BINGX:LSKUSDT.P","BINGX:LTCUSDT.P","BINGX:LUMIAUSDT.P","BINGX:LUNAUSDT.P","BINGX:LUNCUSDT.P","BINGX:MUSDT.P","BINGX:MAGICUSDT.P","BINGX:MANAUSDT.P","BINGX:MANTAUSDT.P","BINGX:MASKUSDT.P","BINGX:MAVUSDT.P","BINGX:MAVIAUSDT.P","BINGX:MBOXUSDT.P","BINGX:MEUSDT.P","BINGX:MELANIAUSDT.P","BINGX:MEMEUSDT.P","BINGX:MERLUSDT.P","BINGX:METAXUSDT.P","BINGX:METISUSDT.P","BINGX:MEWUSDT.P","BINGX:MILKUSDT.P","BINGX:MINAUSDT.P","BINGX:MKRUSDT.P","BINGX:MLNUSDT.P","BINGX:MOODENGUSDT.P","BINGX:MORPHOUSDT.P","BINGX:MOVEUSDT.P","BINGX:MOVRUSDT.P","BINGX:MTLUSDT.P","BINGX:MUBARAKUSDT.P","BINGX:MYROUSDT.P","BINGX:NEARUSDT.P","BINGX:NEIROCTOUSDT.P","BINGX:NEIROETHUSDT.P","BINGX:NEOUSDT.P","BINGX:NFPPUSDT.P","BINGX:NILUSDT.P","BINGX:NMRUSDT.P","BINGX:NOTUSDT.P","BINGX:NTRNUSDT.P","BINGX:NVDAXUSDT.P","BINGX:NXPCUSDT.P","BINGX:OBOLUSDT.P","BINGX:OGUSDT.P","BINGX:OLUSDT.P","BINGX:OMUSDT.P","BINGX:OMNINETWORKUSDT.P","BINGX:ONDOUSDT.P","BINGX:ONEUSDT.P","BINGX:ONGUSDT.P","BINGX:ONTUSDT.P","BINGX:OPUSDT.P","BINGX:ORCAUSDT.P","BINGX:ORDERUSDT.P","BINGX:ORDIUSDT.P","BINGX:OXTUSDT.P","BINGX:PARTIUSDT.P","BINGX:PAXGUSDT.P","BINGX:PENDLEUSDT.P","BINGX:PENGUUSDT.P","BINGX:PEOPLEUSDT.P","BINGX:PERPUSDT.P","BINGX:PFVSUSDT.P","BINGX:PHAUSDT.P","BINGX:PHBUSDT.P","BINGX:PIUSDT.P","BINGX:PIPPINUSDT.P","BINGX:PIXELUSDT.P","BINGX:PLUMEUSDT.P","BINGX:PNUTUSDT.P","BINGX:POLUSDT.P","BINGX:POLIXUSDT.P","BINGX:PONKEUSDT.P","BINGX:POPCATUSDT.P","BINGX:PORT3USDT.P","BINGX:PORTALUSDT.P","BINGX:POWRUSDT.P","BINGX:PRAIUSDT.P","BINGX:PRCLUSDT.P","BINGX:PROMUSDT.P","BINGX:PROMPTUSDT.P","BINGX:PUFFERUSDT.P","BINGX:PUMPBTCUSDT.P","BINGX:PUNDIXUSDT.P","BINGX:PYTHUSDT.P","BINGX:QNTUSDT.P","BINGX:QUICKUSDT.P","BINGX:RAREUSDT.P","BINGX:RATUSDT.P","BINGX:RAYUSDT.P","BINGX:RDNTUSDT.P","BINGX:RDOUSDT.P","BINGX:REDSTONEUSDT.P","BINGX:RENDERUSDT.P","BINGX:RESOLVUSDT.P","BINGX:REXUSDT.P","BINGX:REZUSDT.P","BINGX:RFCUSDT.P","BINGX:RLCUSDT.P","BINGX:ROAMUSDT.P","BINGX:ROSEUSDT.P","BINGX:RPLUSDT.P","BINGX:RSRUSDT.P","BINGX:RUNEUSDT.P","BINGX:RVNUSDT.P","BINGX:SUSDT.P","BINGX:SAFEUSDT.P","BINGX:SAGAUSDT.P","BINGX:SAHARAUSDT.P","BINGX:SANDUSDT.P","BINGX:SANTOSUSDT.P","BINGX:SCRUSDT.P","BINGX:SEIUSDT.P","BINGX:SERAPHUSDT.P","BINGX:SFPUSDT.P","BINGX:SHELLUSDT.P","BINGX:SHIBUSDT.P","BINGX:SIGNUSDT.P","BINGX:SIRENUSDT.P","BINGX:SKATEUSDT.P","BINGX:SKLUSDT.P","BINGX:SKYAIUSDT.P","BINGX:SLERFUSDT.P","BINGX:SLPUSDT.P","BINGX:SNTUSDT.P","BINGX:SNXUSDT.P","BINGX:SOLUSDT.P","BINGX:SOLVUSDT.P","BINGX:SONICUSDT.P","BINGX:SOONUSDT.P","BINGX:SOPHUSDT.P","BINGX:SPKUSDT.P","BINGX:SQDUSDT.P","BINGX:SSVUSDT.P","BINGX:STGUSDT.P","BINGX:STOUSDT.P","BINGX:STORJUSDT.P","BINGX:STRKUSDT.P","BINGX:STXUSDT.P","BINGX:SUIUSDT.P","BINGX:SUNUSDT.P","BINGX:SUPERUSDT.P","BINGX:SUSHIUSDT.P","BINGX:SWARMSUSDT.P","BINGX:SWELLUSDT.P","BINGX:SXPUSDT.P","BINGX:SXTUSDT.P","BINGX:SYNUSDT.P","BINGX:SYRUPUSDT.P","BINGX:TAIUUSDT.P","BINGX:TAIKOUSDT.P","BINGX:TAOUSDT.P","BINGX:TGTUSDT.P","BINGX:THEUSDT.P","BINGX:THETAUSDT.P","BINGX:TIAUSDT.P","BINGX:TLMUSDT.P","BINGX:TNSRUSDT.P","BINGX:TOKENUSDT.P","BINGX:TONCOINUSDT.P","BINGX:TOSHIUSDT.P","BINGX:TRBUSDT.P","BINGX:TROLLUSD.P","BINGX:TRUUSDT.P","BINGX:TRUMPSOLUSDT.P","BINGX:TRXUSDT.P","BINGX:TSTUSDT.P","BINGX:TURBOUSDT.P","BINGX:TUTUSDT.P","BINGX:TWTUSDT.P","BINGX:UMAUSDT.P","BINGX:UNIUSDT.P","BINGX:USELESSUSDT.P","BINGX:USUALUSDT.P","BINGX:UXLINKUSDT.P","BINGX:VANAUSDT.P","BINGX:VANRYUSDT.P","BINGX:VELODROMEUSDT.P","BINGX:VETUSDT.P","BINGX:VICUSDT.P","BINGX:VINEUSDT.P","BINGX:VIRTUALUSDT.P","BINGX:VOXELUSDT.P","BINGX:VTHOUSDT.P","BINGX:VVVUSDT.P","BINGX:WUSDT.P","BINGX:WALUSDT.P","BINGX:WTCUSDT.P","BINGX:WIFUSDT.P","BINGX:WLDUSDT.P","BINGX:WOOUSDT.P","BINGX:XUSDT.P","BINGX:XAIUSDT.P","BINGX:XCNUSDT.P","BINGX:XLMUSDT.P","BINGX:XRPUSDT.P","BINGX:XTERUSDT.P","BINGX:YFIUSDT.P","BINGX:YGGUSDT.P","BINGX:ZBCNUSDT.P","BINGX:ZEREBROUSDT.P","BINGX:ZETAUSDT.P","BINGX:ZILUSDT.P","BINGX:ZKUSDT.P","BINGX:ZORAUSDT.P","BINGX:ZRCUSDT.P","BINGX:ZROUSDT.P","BINGX:ZRXUSDT.P"
+    ];
+    // Build the full symbol objects for the watchlist
+    const symbols = symbolCodes.map(code => {
+      const symbol = code.split(':')[1].replace('.P', '').replace('.p', '');
+      const base = symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol;
+      return {
+        code,
+        name: base + '/USDT',
+        description: base + ' / Tether',
+        exchange: 'BINGX'
+      }
+    });
+
+    // DOM elements
+    const symbolList = document.getElementById('symbolList');
+    const chartInfo = document.getElementById('chartInfo');
+    const infoSymbol = document.getElementById('infoSymbol').children[0];
+    const infoExchange = document.getElementById('infoExchange').children[0];
+    const autoBtn = document.getElementById('autoBtn');
+    const watchlist = document.getElementById('watchlist');
+    const watchlistToggle = document.getElementById('watchlistToggle');
+    const chartArea = document.getElementById('chartArea');
+
+    // Chart logic
+    let activeIdx = 0;
+    let widget = null;
+    let autoSwitch = false;
+    let autoTimer = null;
+    let lastManual = false;
+
+    function renderList() {
+      symbolList.innerHTML = '';
+      symbols.forEach((sym, idx) => {
+        const li = document.createElement('li');
+        li.textContent = sym.name;
+        li.tabIndex = 0;
+        if(idx === activeIdx) li.classList.add('active');
+        li.onclick = () => { setActive(idx, true); };
+        li.onkeydown = (e) => {
+          if(e.key === 'Enter') { setActive(idx, true); }
+          else if(e.key === "ArrowUp") { setActive(Math.max(0, idx-1), true); }
+          else if(e.key === "ArrowDown") { setActive(Math.min(symbols.length-1, idx+1), true); }
+        }
+        symbolList.appendChild(li);
+      });
+    }
+
+    function updateChartInfo(idx) {
+      const sym = symbols[idx];
+      infoSymbol.textContent = `${sym.name} (${sym.description})`;
+      infoExchange.textContent = sym.exchange;
+    }
+
+    function loadTradingViewChart(symbol) {
+      if(widget) widget.remove();
+      widget = new TradingView.widget({
+        "container_id": "tradingview_chart",
+        "width": "100%",
+        "height": 600,
+        "symbol": symbol,
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#222",
+        "enable_publishing": false,
+        "allow_symbol_change": false,
+        "hide_legend": false,
+        "withdateranges": true,
+        "details": false,
+        "hotlist": false,
+        "calendar": false,
+        "studies": [],
+        "container_css": "min-width:0;max-width:100vw;",
+        "hide_side_toolbar": false,
+        "hide_top_toolbar": false,
+        "hideideas": true,
+        "hide_volume": false,
+        "hide_symbol_logo": false
+      });
+    }
+
+    function setActive(idx, manual=false) {
+      if(idx < 0 || idx >= symbols.length) return;
+      activeIdx = idx;
+      renderList();
+      updateChartInfo(idx);
+      loadTradingViewChart(symbols[idx].code);
+      // Stop auto if user interacts
+      if(manual || lastManual) {
+        stopAuto();
+        lastManual = false;
+      }
+      // Scroll to active
+      const li = symbolList.children[activeIdx];
+      if(li) li.scrollIntoView({block:'nearest',behavior:'smooth'});
+    }
+
+    function nextSymbol() {
+      activeIdx = (activeIdx + 1) % symbols.length;
+      setActive(activeIdx);
+    }
+
+    function startAuto() {
+      if(autoTimer) clearInterval(autoTimer);
+      autoSwitch = true;
+      autoBtn.classList.add('on');
+      autoBtn.textContent = "Auto ON";
+      autoTimer = setInterval(() => {
+        lastManual = false;
+        nextSymbol();
+      }, 5000);
+    }
+
+    function stopAuto() {
+      autoSwitch = false;
+      autoBtn.classList.remove('on');
+      autoBtn.textContent = "Auto OFF";
+      if(autoTimer) clearInterval(autoTimer);
+      autoTimer = null;
+    }
+
+    autoBtn.onclick = () => {
+      if(autoSwitch) stopAuto();
+      else startAuto();
+    }
+
+    // Watchlist show/hide
+    let watchlistVisible = false;
+    function showWatchlist(show) {
+      watchlistVisible = show;
+      if(show) watchlist.classList.remove('hide');
+      else watchlist.classList.add('hide');
+    }
+    watchlistToggle.onclick = (e) => {
+      e.stopPropagation();
+      showWatchlist(!watchlistVisible);
+    }
+    // Hide on outside click (mobile)
+    chartArea.onclick = () => {
+      if(window.innerWidth < 700 && watchlistVisible) showWatchlist(false);
+    }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', e => {
+      if(document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return;
+      if(e.key === "ArrowUp") {
+        setActive(Math.max(0, activeIdx-1), true);
+        lastManual = true;
+      } else if(e.key === "ArrowDown") {
+        setActive(Math.min(symbols.length-1, activeIdx+1), true);
+        lastManual = true;
+      } else if(e.key === "w" && e.ctrlKey) {
+        // Toggle watchlist with Ctrl+W
+        showWatchlist(!watchlistVisible);
+      }
+    });
+
+    // Responsive: hide watchlist by default on mobile
+    function checkMobile() {
+      if(window.innerWidth < 700) showWatchlist(false);
+      else showWatchlist(true);
+    }
+    window.addEventListener('resize', checkMobile);
+
+    // Initial load
+    renderList();
+    setActive(0);
+    checkMobile();
+
+    // Set chart height dynamically
+    function resizeChart() {
+      const chart = document.getElementById("tradingview_chart");
+      if(!chart) return;
+      let h = Math.max(320,window.innerHeight-20);
+      chart.style.height = h+"px";
+    }
+    window.addEventListener('resize', resizeChart);
+    resizeChart();
+  </script>
+</body>
+</html>
